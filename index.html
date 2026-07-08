@@ -3,70 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon City Pursuit</title>
+    <title>Cyber Galaxia</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; touch-action: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #030712; overflow: hidden; touch-action: none; font-family: monospace; }
         canvas { display: block; }
-        #ui { position: absolute; top: 10px; left: 10px; color: #00f0ff; font-family: monospace; pointer-events: none; }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #00f0ff;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 8px #00f0ff;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
-    <div id="ui">PUNTOS: <span id="score">0</span></div>
+
+    <div id="ui">BAJAS: <span id="score">0</span></div>
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
         let score = 0;
-        let speed = 5;
+        let gameOver = false;
         let roadOffset = 0;
-        
-        const player = { x: canvas.width/2, y: canvas.height - 100, w: 40, h: 60 };
+        const scrollSpeed = 6;
+
+        // Jugador (Tu Tanque de Neón)
+        const player = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 120,
+            w: 40,
+            h: 55,
+            targetX: canvas.width / 2 - 20
+        };
+
+        const bullets = [];
         const enemies = [];
+        const particles = [];
 
-        window.addEventListener('pointermove', (e) => { player.x = e.clientX - 20; });
+        // Control táctil suave
+        function handleMove(e) {
+            if (gameOver) return;
+            const touch = e.touches ? e.touches[0] : e;
+            player.targetX = touch.clientX - player.w / 2;
 
+            // Disparar de forma automática mientras te mueves
+            if (Math.random() < 0.35) {
+                bullets.push({
+                    x: player.x + player.w / 2,
+                    y: player.y,
+                    vy: -10
+                });
+            }
+        }
+        window.addEventListener('pointerdown', handleMove);
+        window.addEventListener('pointermove', handleMove);
+
+        // Generar explosión de partículas
+        function createExplosion(x, y, color) {
+            for(let i=0; i<8; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: (Math.random() - 0.5) * 5,
+                    radius: Math.random() * 3 + 1,
+                    alpha: 1,
+                    color: color
+                });
+            }
+        }
+
+        // Generar oleadas enemigas desde arriba
+        function spawnEnemy() {
+            if (enemies.length < 6 && !gameOver) {
+                enemies.push({
+                    x: Math.random() * (canvas.width - 40),
+                    y: -40,
+                    w: 35,
+                    h: 35,
+                    speed: 2 + Math.random() * 3
+                });
+            }
+        }
+        setInterval(spawnEnemy, 900);
+
+        // Bucle de juego
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 1. Dibujar Autopista móvil
-            roadOffset += speed;
+
+            if (gameOver) {
+                ctx.fillStyle = '#ff0055';
+                ctx.font = 'bold 26px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('¡SISTEMA DESTRUIDO!', canvas.width/2, canvas.height/2);
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('Refresca la página para volver a la vía', canvas.width/2, canvas.height/2 + 40);
+                return;
+            }
+
+            // 1. Efecto Carretera Infinita (Scroll)
+            roadOffset += scrollSpeed;
             if (roadOffset > 40) roadOffset = 0;
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 10;
-            for(let i=0; i < canvas.height/40 + 1; i++) {
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 6;
+            for(let i = -1; i < canvas.height/40 + 1; i++) {
                 ctx.beginPath();
-                ctx.moveTo(canvas.width/2, i * 40 + roadOffset - 40);
-                ctx.lineTo(canvas.width/2, i * 40 + roadOffset - 20);
+                ctx.moveTo(canvas.width/2, i * 40 + roadOffset);
+                ctx.lineTo(canvas.width/2, i * 40 + roadOffset + 20);
                 ctx.stroke();
             }
 
-            // 2. Dibujar Tanque Jugador
-            ctx.fillStyle = '#00f0ff';
-            ctx.fillRect(player.x, player.y, player.w, player.h);
+            // Límite lateral de la vía simulada
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 0, canvas.width - 40, canvas.height);
 
-            // 3. Generar y mover enemigos (Edificios/Obstáculos)
-            if(Math.random() < 0.05) {
-                enemies.push({ x: Math.random() * (canvas.width - 50), y: -50, w: 50, h: 50 });
+            // 2. Mover e Interpolar Jugador
+            player.x += (player.targetX - player.x) * 0.2;
+            
+            // Dibujar Tanque
+            ctx.fillStyle = '#1e293b'; // Orugas
+            ctx.fillRect(player.x - 4, player.y + 5, player.w + 8, player.h - 10);
+            ctx.fillStyle = '#020617'; // Chasis
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 3;
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.strokeRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = '#00f0ff'; // Cañón Láser
+            ctx.fillRect(player.x + player.w/2 - 3, player.y - 12, 6, 12);
+
+            // 3. Control de Balas (Hacia arriba)
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.y += b.vy;
+                
+                ctx.fillStyle = '#00f0ff';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#00f0ff';
+                ctx.fillRect(b.x - 2, b.y, 4, 12);
+                ctx.shadowBlur = 0; // Reset sombra
+
+                if (b.y < 0) bullets.splice(i, 1);
             }
 
-            for(let i = enemies.length - 1; i >= 0; i--) {
-                enemies[i].y += speed;
-                ctx.fillStyle = '#ff0055';
-                ctx.fillRect(enemies[i].x, enemies[i].y, enemies[i].w, enemies[i].h);
-                
-                if(enemies[i].y > canvas.height) {
+            // 4. Control de Enemigos (Bajando por la vía)
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                e.y += e.speed;
+
+                // Dibujar bloque invasor
+                ctx.fillStyle = '#1e000a';
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 2;
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                ctx.strokeRect(e.x, e.y, e.w, e.h);
+
+                // Colisión: Enemigo pasa de largo (Pierdes) o choca contigo
+                if (e.y > canvas.height) {
                     enemies.splice(i, 1);
-                    score += 10;
-                    document.getElementById('score').innerText = score;
+                } else if (
+                    e.x < player.x + player.w &&
+                    e.x + e.w > player.x &&
+                    e.y < player.y + player.h &&
+                    e.y + e.h > player.y
+                ) {
+                    createExplosion(player.x + player.w/2, player.y + player.h/2, '#00f0ff');
+                    createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0055');
+                    gameOver = true;
+                }
+
+                // Colisión: Bala destruye Enemigo
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    let b = bullets[j];
+                    if (
+                        b.x > e.x && b.x < e.x + e.w &&
+                        b.y > e.y && b.y < e.y + e.h
+                    ) {
+                        createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0055');
+                        enemies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score++;
+                        document.getElementById('score').innerText = score;
+                        break;
+                    }
                 }
             }
+
+            // 5. Animación de Partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
             requestAnimationFrame(update);
         }
-        update();
+
+        requestAnimationFrame(update);
     </script>
 </body>
 </html>
