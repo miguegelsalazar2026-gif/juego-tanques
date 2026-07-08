@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Tank Combat</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background-color: #080c14; 
+            color: #fff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #canvas {
+            display: block;
+            background: radial-gradient(circle, #101726 0%, #070a12 100%);
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00f0ff;
+            pointer-events: none;
+        }
+        .bar-container {
+            width: 150px;
+            height: 12px;
+            background: #222;
+            border-radius: 6px;
+            margin-top: 5px;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0055, #ff5500);
+            transition: width 0.2s;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 15px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div>Bajas: <span id="score">0</span></div>
+        <div class="bar-container"><div id="health-bar"></div></div>
+    </div>
+    
+    <div id="instructions">Toca la pantalla para moverte y disparar hacia esa dirección</div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const healthBar = document.getElementById('health-bar');
+
+        // Ajustar tamaño al celular
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Estado del Juego
+        let score = 0;
+        let gameOver = false;
+
+        // Estructura del Jugador (Tanque Cyberpunk)
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 20,
+            angle: 0,
+            speed: 3,
+            targetX: canvas.width / 2,
+            targetY: canvas.height / 2,
+            hp: 100
+        };
+
+        const bullets = [];
+        const enemies = [];
+        const particles = [];
+
+        // Generar partículas de explosión (Efecto moderno)
+        function createExplosion(x, y, color) {
+            for(let i=0; i<12; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 4 + 1,
+                    alpha: 1,
+                    color: color
+                });
+            }
+        }
+
+        // Control Táctil y Mouse
+        function handleMove(e) {
+            if (gameOver) return;
+            const touch = e.touches ? e.touches[0] : e;
+            player.targetX = touch.clientX;
+            player.targetY = touch.clientY;
+            
+            // Disparar ráfaga al tocar
+            if(Math.random() < 0.25) {
+                bullets.push({
+                    x: player.x,
+                    y: player.y,
+                    vx: Math.cos(player.angle) * 7,
+                    vy: Math.sin(player.angle) * 7,
+                    color: '#00f0ff'
+                });
+            }
+        }
+
+        window.addEventListener('pointerdown', handleMove);
+        window.addEventListener('pointermove', handleMove);
+
+        // Generar enemigos enemigos robóticos
+        function spawnEnemy() {
+            if (enemies.length < 5 && !gameOver) {
+                let x, y;
+                if (Math.random() < 0.5) {
+                    x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+                    y = Math.random() * canvas.height;
+                } else {
+                    x = Math.random() * canvas.width;
+                    y = Math.random() < 0.5 ? -30 : canvas.height + 30;
+                }
+                enemies.push({ x, y, radius: 18, speed: 1.5 + (score * 0.1) });
+            }
+        }
+        setInterval(spawnEnemy, 2000);
+
+        // Bucle Principal del Juego (60 FPS)
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameOver) {
+                ctx.fillStyle = '#ff0055';
+                ctx.font = 'bold 30px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px sans-serif';
+                ctx.fillText('Recarga la página para reiniciar', canvas.width/2, canvas.height/2 + 40);
+                return;
+            }
+
+            // Lógica del Jugador: Seguir el toque con suavidad
+            let dx = player.targetX - player.x;
+            let dy = player.targetY - player.y;
+            let dist = Math.hypot(dx, dy);
+            
+            if (dist > 5) {
+                player.angle = Math.atan2(dy, dx);
+                player.x += (dx / dist) * player.speed;
+                player.y += (dy / dist) * player.speed;
+            }
+
+            // Dibujar Jugador (Tanque de Neón)
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            // Orugas/Base
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-22, -16, 44, 32);
+            // Cuerpo central
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            // Cañón láser
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(0, -4, 28, 8);
+            ctx.restore();
+
+            // Actualizar y dibujar Balas
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 4, 0, Math.PI*2);
+                ctx.fill();
+
+                // Borrar si sale de pantalla
+                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Actualizar y dibujar Enemigos (Tanques Rojos AI)
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                let edx = player.x - e.x;
+                let edy = player.y - e.y;
+                let edist = Math.hypot(edx, edy);
+                let eAngle = Math.atan2(edy, edx);
+
+                // Persecución inteligente
+                e.x += (edx / edist) * e.speed;
+                e.y += (edy / edist) * e.speed;
+
+                // Dibujar Enemigo
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.rotate(eAngle);
+                ctx.fillStyle = '#3f0015';
+                ctx.fillRect(-20, -14, 40, 28);
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(0, -3, 22, 6);
+                ctx.restore();
+
+                // Colisión Enemigo vs Jugador
+                if (edist < player.radius + e.radius) {
+                    player.hp -= 0.5; // Quita vida por contacto continuo
+                    healthBar.style.width = player.hp + '%';
+                    if (player.hp <= 0) {
+                        createExplosion(player.x, player.y, '#00f0ff');
+                        createExplosion(player.x, player.y, '#ff0055');
+                        gameOver = true;
+                    }
+                }
+
+                // Colisión Bala vs Enemigo
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    let b = bullets[j];
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.radius + 4) {
+                        createExplosion(e.x, e.y, '#ff0055');
+                        enemies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score++;
+                        scoreEl.innerText = score;
+                        break;
+                    }
+                }
+            }
+
+            // Actualizar partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.02;
+                if(p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
