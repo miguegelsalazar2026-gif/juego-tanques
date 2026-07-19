@@ -2,87 +2,98 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber Tanques Épico</title>
+    <title>Tanques: La Odisea</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { overflow: hidden; font-family: sans-serif; transition: background 0.5s; background: #f0f0f0; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #333; font-size: 20px; font-weight: bold; pointer-events: none; }
-        #btnMute { position: absolute; top: 15px; right: 15px; padding: 15px; cursor: pointer; z-index: 20; background: #333; color: white; border-radius: 5px; }
-        #btnReinicio { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 20px; cursor: pointer; display: none; z-index: 20; }
+        body { margin: 0; overflow: hidden; background: #f0f0f0; font-family: sans-serif; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; text-shadow: 1px 1px 2px black; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="ui">BAJAS: <span id="score">0</span> | NIVEL: <span id="lvl">1</span></div>
-    <button id="btnMute" onclick="toggleMute()">🔇</button>
-    <button id="btnReinicio" onclick="location.reload()">REINICIAR</button>
     <canvas id="canvas"></canvas>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        const sndDisparo = new Audio('MP3/DISPAROS.mp3');
-        const sndExplosion = new Audio('MP3/sonido explosion.mp3');
-        const sndMusica = new Audio('MP3/SOY LEYENDA _ BANDA SONORA (SOUNDTRACK).mp3');
+let score = 0, nivel = 1, superModo = false, escudo = false, gameOver = false;
+const player = { x: canvas.width/2 - 25, y: canvas.height - 100 };
+const enemies = [], bricks = [], bullets = [], boss = {x: 100, y: 50, vida: 200, active: false};
 
-        let score = 0, nivel = 1, gameOver = false, superModo = false, escudo = false, muted = false;
-        const player = { x: canvas.width/2 - 25, y: canvas.height - 150 };
-        const enemies = [], bullets = [], items = [], parts = [];
+// Fondo según nivel
+function drawBackground() {
+    if (nivel === 1) ctx.fillStyle = '#f0f0f0';
+    else if (nivel === 2) ctx.fillStyle = '#555'; // Carrera
+    else ctx.fillStyle = '#1a1a2e'; // Ciudad
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
 
-        function toggleMute() { muted = !muted; sndDisparo.muted = muted; sndExplosion.muted = muted; sndMusica.muted = muted; document.getElementById('btnMute').innerText = muted ? '🔊' : '🔇'; }
-        window.addEventListener('touchstart', () => { sndMusica.play().catch(()=>{}); }, {once: true});
-
-        function dibujarTanque(x, y, color, forma) {
-            ctx.fillStyle = color; ctx.fillRect(x + 10, y, 30, 60);
-            ctx.fillStyle = '#333'; ctx.fillRect(x, y + 5, 10, 50); ctx.fillRect(x + 40, y + 5, 10, 50);
-            ctx.fillStyle = color; 
-            if (forma === 'doble') { ctx.fillRect(x + 5, y - 10, 6, 15); ctx.fillRect(x + 39, y - 10, 6, 15); }
-            else { ctx.fillRect(x + 22, y - 10, 6, 15); }
-        }
-
-        function update() {
-            if (gameOver) { document.getElementById('btnReinicio').style.display = 'block'; return; }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (score >= 200) nivel = 3; else if (score >= 120) nivel = 2;
-            document.body.style.backgroundColor = nivel == 3 ? '#deb887' : (nivel == 2 ? '#87ceeb' : '#f0f0f0');
-
-            dibujarTanque(player.x, player.y, escudo ? '#0f0' : (superModo ? '#ff0' : '#000'), superModo ? 'doble' : 'normal');
-
-            enemies.forEach((e, i) => {
-                e.y += 3;
-                dibujarTanque(e.x, e.y, '#f00', 'normal');
-                bullets.forEach((b, j) => {
-                    if (b.x < e.x + 50 && b.x + 6 > e.x && b.y < e.y + 60 && b.y + 15 > e.y) {
-                        for(let k=0; k<5; k++) parts.push({x: e.x+25, y: e.y+30, vx: Math.random()*4-2, vy: Math.random()*4-2, life: 10});
-                        enemies.splice(i, 1); bullets.splice(j, 1); score++; sndExplosion.play();
-                        document.getElementById('score').innerText = score; document.getElementById('lvl').innerText = nivel;
-                    }
-                });
-                if (!escudo && e.x < player.x+50 && e.x+50 > player.x && e.y < player.y+60 && e.y+60 > player.y) gameOver = true;
-                if (e.y > canvas.height) enemies.splice(i, 1);
+function update() {
+    if (gameOver) return;
+    drawBackground();
+    
+    // Nivel 1: Tanques (50)
+    if (nivel === 1) {
+        if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
+        enemies.forEach((e, i) => {
+            e.y += 3;
+            ctx.fillStyle = 'red'; ctx.fillRect(e.x, e.y, 40, 40);
+            bullets.forEach((b, j) => {
+                if (b.x > e.x && b.x < e.x+40 && b.y < e.y+40) {
+                    enemies.splice(i, 1); bullets.splice(j, 1); score++;
+                    if (score >= 50) nivel = 2;
+                }
             });
+        });
+    }
 
-            parts.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life--;
-                ctx.fillStyle = 'orange'; ctx.fillRect(p.x, p.y, 4, 4);
-                if(p.life <= 0) parts.splice(i, 1);
+    // Nivel 2: Muro de Ladrillos (30 líneas)
+    if (nivel === 2) {
+        if (bricks.length === 0) for(let i=0; i<30; i++) bricks.push({x: (i%10)*40, y: Math.floor(i/10)*40});
+        bricks.forEach((br, i) => {
+            ctx.fillStyle = 'brown'; ctx.fillRect(br.x, br.y, 35, 35);
+            bullets.forEach((b, j) => {
+                if (b.x > br.x && b.x < br.x+35 && b.y < br.y+35) {
+                    bricks.splice(i, 1); bullets.splice(j, 1);
+                    if (bricks.length === 0) nivel = 3;
+                }
             });
+        });
+        superModo = true; // Doble cañón permanente en nivel 2
+    }
 
-            if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
-            bullets.forEach((b, i) => { b.y -= 10; ctx.fillStyle = 'blue'; ctx.fillRect(b.x, b.y, 6, 15); });
-            requestAnimationFrame(update);
-        }
+    // Nivel 3: Nave Espacial
+    if (nivel === 3) {
+        boss.active = true;
+        boss.x += Math.sin(Date.now() * 0.005) * 5;
+        ctx.fillStyle = 'cyan'; ctx.fillRect(boss.x, boss.y, 100, 50);
+        bullets.forEach((b, j) => {
+            if (b.x > boss.x && b.x < boss.x+100 && b.y < boss.y+50) {
+                boss.vida--; bullets.splice(j, 1);
+                if (boss.vida <= 0) alert("¡VICTORIA!");
+            }
+        });
+    }
 
-        window.addEventListener('touchmove', (e) => { player.x = e.touches[0].clientX - 25; });
-        setInterval(() => { if(!gameOver) { bullets.push({x: player.x+22, y: player.y}); sndDisparo.play(); } }, 600);
-        update();
-    </script>
-</body>
-</html>        setInterval(() => { if(!gameOver) items.push({x: Math.random()*canvas.width, y: 0, tipo: ['reloj','espada','botiquin'][Math.floor(Math.random()*3)]}); }, 8000);
-        update();
-    </script>
+    // Jugador
+    ctx.fillStyle = escudo ? 'green' : 'black';
+    ctx.fillRect(player.x, player.y, 50, 50);
+    if (superModo) { ctx.fillRect(player.x-10, player.y, 10, 30); ctx.fillRect(player.x+50, player.y, 10, 30); }
+
+    // Balas
+    bullets.forEach((b, i) => { b.y -= 10; ctx.fillStyle = 'blue'; ctx.fillRect(b.x, b.y, 5, 10); if(b.y < 0) bullets.splice(i,1); });
+
+    requestAnimationFrame(update);
+}
+
+window.addEventListener('touchmove', (e) => player.x = e.touches[0].clientX - 25);
+setInterval(() => {
+    bullets.push({x: player.x+22, y: player.y});
+    if (superModo) { bullets.push({x: player.x-10, y: player.y}); bullets.push({x: player.x+60, y: player.y}); }
+}, 300);
+
+update();
+</script>
 </body>
 </html>
