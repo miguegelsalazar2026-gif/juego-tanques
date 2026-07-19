@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber Tanques PRO</title>
+    <title>Cyber Tanques Elite</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #f0f0f0; overflow: hidden; font-family: sans-serif; }
@@ -13,9 +13,9 @@
     </style>
 </head>
 <body>
-    <div id="ui">BAJAS: <span id="score">0</span></div>
+    <div id="ui">BAJAS: <span id="score">0</span> | NIVEL: <span id="lvl">1</span></div>
     <button id="btnMute" onclick="toggleMute()">🔇 SONIDO</button>
-    <button id="btnReinicio" onclick="location.reload()">REINICIAR JUEGO</button>
+    <button id="btnReinicio" onclick="location.reload()">REINICIAR</button>
     <canvas id="canvas"></canvas>
 
     <script>
@@ -27,22 +27,13 @@
         const sndExplosion = new Audio('MP3/sonido explosion.mp3');
         const sndMusica = new Audio('MP3/SOY LEYENDA _ BANDA SONORA (SOUNDTRACK).mp3');
 
-        let score = 0, gameOver = false, muted = false, powerUp = false;
-        let velEnemigos = 3;
+        let score = 0, nivel = 1, gameOver = false, muted = false, escudo = false;
+        let velEne = 3;
         const player = { x: canvas.width/2 - 25, y: canvas.height - 150, w: 50, h: 60 };
-        const enemies = [], bullets = [], particles = [], items = [];
+        const enemies = [], bullets = [], bEnemigos = [], items = [];
 
-        function toggleMute() {
-            muted = !muted;
-            sndDisparo.muted = muted; sndExplosion.muted = muted; sndMusica.muted = muted;
-            document.getElementById('btnMute').innerText = muted ? '🔊 MUTED' : '🔇 SONIDO';
-        }
-
+        function toggleMute() { muted = !muted; sndDisparo.muted = muted; sndExplosion.muted = muted; sndMusica.muted = muted; }
         sndMusica.loop = true; sndMusica.play();
-
-        function spawnParticles(x, y) {
-            for(let i=0; i<6; i++) particles.push({x, y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life: 20});
-        }
 
         function dibujarTanque(x, y, color) {
             ctx.fillStyle = color; ctx.fillRect(x + 10, y, 30, 60);
@@ -50,60 +41,68 @@
             ctx.fillStyle = color; ctx.fillRect(x + 22, y - 10, 6, 15);
         }
 
-        window.addEventListener('touchmove', (e) => {
-            player.x = e.touches[0].clientX - player.w/2;
-            player.y = e.touches[0].clientY - player.h/2;
-        });
+        window.addEventListener('touchmove', (e) => { player.x = e.touches[0].clientX - 25; player.y = e.touches[0].clientY - 30; });
 
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (gameOver) { document.getElementById('btnReinicio').style.display = 'block'; return; }
 
-            dibujarTanque(player.x, player.y, '#000');
+            // Nivel 2: Inversión de movimiento
+            if (nivel >= 2) { ctx.fillStyle = '#ddd'; ctx.fillRect(0,0,canvas.width, canvas.height); }
 
-            if (powerUp) { ctx.strokeStyle = '#0f0'; ctx.strokeRect(player.x-5, player.y-5, 60, 70); }
+            dibujarTanque(player.x, player.y, escudo ? '#0f0' : '#000');
 
-            bullets.forEach((b, i) => {
-                b.y -= 10;
-                ctx.fillStyle = b.triple ? '#0f0' : '#00f'; ctx.fillRect(b.x, b.y, 6, 15);
-                if (b.y < 0) bullets.splice(i, 1);
-            });
-
+            // Enemigos
             if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
             enemies.forEach((e, i) => {
-                e.y += velEnemigos;
+                e.y += velEne;
+                // En nivel 2, los enemigos suben en vez de bajar
+                if (nivel >= 2) e.y = (canvas.height + 50) - (e.y - (-50));
+                
                 dibujarTanque(e.x, e.y, '#f00');
+
+                // Disparo enemigo (Nivel 2)
+                if (nivel >= 2 && Math.random() < 0.01) bEnemigos.push({x: e.x+22, y: e.y+60});
+
+                // Colisiones
+                if (!escudo && (e.x < player.x+50 && e.x+50 > player.x && e.y < player.y+60 && e.y+60 > player.y)) gameOver = true;
+                
                 bullets.forEach((b, j) => {
-                    if (b.x < e.x + 50 && b.x + 6 > e.x && b.y < e.y + 60 && b.y + 15 > e.y) {
-                        spawnParticles(e.x, e.y);
+                    if (b.x < e.x+50 && b.x+6 > e.x && b.y < e.y+60 && b.y+15 > e.y) {
                         enemies.splice(i, 1); bullets.splice(j, 1); score++;
-                        if (score % 20 === 0) velEnemigos += 0.5;
-                        if (score % 15 === 0) items.push({x: e.x, y: e.y});
-                        document.getElementById('score').innerText = score;
+                        if (score >= 40) nivel = 2;
+                        if (score % 20 === 0) items.push({x: e.x, y: e.y});
+                        document.getElementById('score').innerText = score; document.getElementById('lvl').innerText = nivel;
                         sndExplosion.play();
                     }
                 });
-                if (e.x < player.x + 50 && e.x + 50 > player.x && e.y < player.y + 60 && e.y + 60 > player.y) gameOver = true;
-                if (e.y > canvas.height) enemies.splice(i, 1);
             });
 
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life--;
-                ctx.fillStyle = '#f00'; ctx.fillRect(p.x, p.y, 4, 4);
-                if (p.life <= 0) particles.splice(i, 1);
-            });
-
+            // Lógica Botiquín
             items.forEach((it, i) => {
-                it.y += 2;
-                ctx.fillStyle = '#0f0'; ctx.fillRect(it.x, it.y, 20, 20);
-                if (it.x < player.x + 50 && it.x + 20 > player.x && it.y < player.y + 60 && it.y + 20 > player.y) {
-                    powerUp = true; items.splice(i, 1); setTimeout(() => powerUp = false, 7000);
+                it.y += 3;
+                ctx.fillStyle = '#f00'; ctx.fillRect(it.x, it.y, 20, 20); // Botiquín
+                ctx.fillStyle = '#fff'; ctx.fillRect(it.x+8, it.y+2, 4, 16); ctx.fillRect(it.x+2, it.y+8, 16, 4);
+                if (it.x < player.x+50 && it.x+20 > player.x && it.y < player.y+60 && it.y+20 > player.y) {
+                    escudo = true; items.splice(i, 1); setTimeout(() => escudo = false, 5000);
                 }
             });
+
+            // Disparos enemigos
+            bEnemigos.forEach((b, i) => {
+                b.y += 5; ctx.fillStyle = '#f00'; ctx.fillRect(b.x, b.y, 6, 15);
+                if (!escudo && b.x < player.x+50 && b.x+6 > player.x && b.y < player.y+60 && b.y+15 > player.y) gameOver = true;
+            });
+
+            bullets.forEach((b, i) => { b.y -= 10; ctx.fillStyle = '#00f'; ctx.fillRect(b.x, b.y, 6, 15); });
             requestAnimationFrame(update);
         }
-        
-        setInterval(() => {
+
+        setInterval(() => { if(!gameOver) bullets.push({x: player.x+22, y: player.y}); }, 500);
+        update();
+    </script>
+</body>
+</html>
             if(!gameOver) {
                 let offset = powerUp ? 20 : 0;
                 bullets.push({x: player.x + 22 - offset, y: player.y, triple: powerUp});
