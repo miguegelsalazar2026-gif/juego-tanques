@@ -6,13 +6,13 @@
     <title>Cyber Tanques Épico</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { overflow: hidden; font-family: sans-serif; transition: background 0.5s; }
-        #ui { position: absolute; top: 15px; left: 15px; color: white; font-size: 20px; font-weight: bold; text-shadow: 1px 1px 2px black; pointer-events: none; }
+        body { overflow: hidden; font-family: sans-serif; transition: background 0.5s; background: #f0f0f0; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #333; font-size: 20px; font-weight: bold; pointer-events: none; }
         #btnMute { position: absolute; top: 15px; right: 15px; padding: 15px; cursor: pointer; z-index: 20; background: #333; color: white; border-radius: 5px; }
         #btnReinicio { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 20px; cursor: pointer; display: none; z-index: 20; }
     </style>
 </head>
-<body style="background-color: #f0f0f0;">
+<body>
     <div id="ui">BAJAS: <span id="score">0</span> | NIVEL: <span id="lvl">1</span></div>
     <button id="btnMute" onclick="toggleMute()">🔇</button>
     <button id="btnReinicio" onclick="location.reload()">REINICIAR</button>
@@ -23,22 +23,15 @@
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        // Rutas fijas (verifícalas en tu repo)
         const sndDisparo = new Audio('MP3/DISPAROS.mp3');
         const sndExplosion = new Audio('MP3/sonido explosion.mp3');
         const sndMusica = new Audio('MP3/SOY LEYENDA _ BANDA SONORA (SOUNDTRACK).mp3');
 
         let score = 0, nivel = 1, gameOver = false, superModo = false, escudo = false, muted = false;
         const player = { x: canvas.width/2 - 25, y: canvas.height - 150 };
-        const enemies = [], bullets = [], items = [], obs = [];
+        const enemies = [], bullets = [], items = [], parts = [];
 
-        function toggleMute() {
-            muted = !muted;
-            sndDisparo.muted = muted; sndExplosion.muted = muted; sndMusica.muted = muted;
-            document.getElementById('btnMute').innerText = muted ? '🔊' : '🔇';
-        }
-
-        // El navegador bloquea música automática, esto ayuda:
+        function toggleMute() { muted = !muted; sndDisparo.muted = muted; sndExplosion.muted = muted; sndMusica.muted = muted; document.getElementById('btnMute').innerText = muted ? '🔊' : '🔇'; }
         window.addEventListener('touchstart', () => { sndMusica.play().catch(()=>{}); }, {once: true});
 
         function dibujarTanque(x, y, color, forma) {
@@ -53,58 +46,42 @@
             if (gameOver) { document.getElementById('btnReinicio').style.display = 'block'; return; }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Niveles y Fondos
-            if (score >= 200) { nivel = 3; document.body.style.backgroundColor = '#deb887'; }
-            else if (score >= 120) { nivel = 2; document.body.style.backgroundColor = '#87ceeb'; }
+            if (score >= 200) nivel = 3; else if (score >= 120) nivel = 2;
+            document.body.style.backgroundColor = nivel == 3 ? '#deb887' : (nivel == 2 ? '#87ceeb' : '#f0f0f0');
 
             dibujarTanque(player.x, player.y, escudo ? '#0f0' : (superModo ? '#ff0' : '#000'), superModo ? 'doble' : 'normal');
 
-                        // Enemigos
-            if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
-            
             enemies.forEach((e, i) => {
                 e.y += 3;
                 dibujarTanque(e.x, e.y, '#f00', 'normal');
-                
                 bullets.forEach((b, j) => {
                     if (b.x < e.x + 50 && b.x + 6 > e.x && b.y < e.y + 60 && b.y + 15 > e.y) {
-                        // --- EFECTO DE EXPLOSIÓN ---
-                        crearExplosion(e.x + 25, e.y + 30);
-                        // ---------------------------
-                        enemies.splice(i, 1); 
-                        bullets.splice(j, 1); 
-                        score++;
-                        sndExplosion.play();
-                        document.getElementById('score').innerText = score;
+                        for(let k=0; k<5; k++) parts.push({x: e.x+25, y: e.y+30, vx: Math.random()*4-2, vy: Math.random()*4-2, life: 10});
+                        enemies.splice(i, 1); bullets.splice(j, 1); score++; sndExplosion.play();
+                        document.getElementById('score').innerText = score; document.getElementById('lvl').innerText = nivel;
                     }
                 });
-                
                 if (!escudo && e.x < player.x+50 && e.x+50 > player.x && e.y < player.y+60 && e.y+60 > player.y) gameOver = true;
                 if (e.y > canvas.height) enemies.splice(i, 1);
             });
 
-
-            // Ítems
-            items.forEach((it, i) => {
-                it.y += 3;
-                ctx.fillStyle = it.tipo === 'reloj' ? 'gold' : (it.tipo === 'espada' ? 'cyan' : 'red');
-                ctx.fillRect(it.x, it.y, 25, 25);
-                if (it.x < player.x+50 && it.x+25 > player.x && it.y < player.y+60 && it.y+25 > player.y) {
-                    if (it.tipo === 'reloj') { enemies.length = 0; score += 20; sndExplosion.play(); }
-                    if (it.tipo === 'espada') { superModo = true; setTimeout(() => superModo = false, 15000); }
-                    if (it.tipo === 'botiquin') { escudo = true; setTimeout(() => escudo = false, 15000); }
-                    items.splice(i, 1);
-                }
+            parts.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life--;
+                ctx.fillStyle = 'orange'; ctx.fillRect(p.x, p.y, 4, 4);
+                if(p.life <= 0) parts.splice(i, 1);
             });
 
-            // Disparo
+            if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
             bullets.forEach((b, i) => { b.y -= 10; ctx.fillStyle = 'blue'; ctx.fillRect(b.x, b.y, 6, 15); });
             requestAnimationFrame(update);
         }
 
         window.addEventListener('touchmove', (e) => { player.x = e.touches[0].clientX - 25; });
-        setInterval(() => { if(!gameOver) { bullets.push({x: player.x+22, y: player.y}); sndDisparo.play(); } }, 500);
-        setInterval(() => { if(!gameOver) items.push({x: Math.random()*canvas.width, y: 0, tipo: ['reloj','espada','botiquin'][Math.floor(Math.random()*3)]}); }, 8000);
+        setInterval(() => { if(!gameOver) { bullets.push({x: player.x+22, y: player.y}); sndDisparo.play(); } }, 600);
+        update();
+    </script>
+</body>
+</html>        setInterval(() => { if(!gameOver) items.push({x: Math.random()*canvas.width, y: 0, tipo: ['reloj','espada','botiquin'][Math.floor(Math.random()*3)]}); }, 8000);
         update();
     </script>
 </body>
