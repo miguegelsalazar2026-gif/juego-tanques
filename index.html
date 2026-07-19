@@ -9,8 +9,8 @@
         body { background-color: #000; overflow: hidden; }
         canvas { display: block; background-size: cover; background-position: center; }
         #ui { position: absolute; top: 15px; left: 15px; color: #00f0ff; font-size: 20px; font-weight: bold; pointer-events: none; text-shadow: 0 0 8px #00f0ff; }
-        .nivel-1 { background-image: url('ciudad-fondo.jpg'); } /* Cambia por tus imágenes */
-        .nivel-2 { background-image: url('desierto-fondo.jpg'); }
+        .nivel-1 { background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); background-color: #1a1a1a; }
+        .nivel-2 { background-image: url('https://www.transparenttextures.com/patterns/stardust.png'); background-color: #000; }
     </style>
 </head>
 <body>
@@ -20,90 +20,96 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        
+        // Estado del juego
         let score = 0;
         let nivel = 1;
         let metaTanques = 400;
+        let gameOver = false;
+        let roadOffset = 0;
+        const scrollSpeed = 6;
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize);
         resize();
 
-        // Lógica de Niveles
+        const player = { x: canvas.width/2 - 20, y: canvas.height - 120, w: 40, h: 55, targetX: canvas.width/2 - 20 };
+        const bullets = [], enemies = [], particles = [];
+
+        function handleMove(e) {
+            if (gameOver) return;
+            const touch = e.touches ? e.touches[0] : e;
+            player.targetX = touch.clientX - player.w / 2;
+        }
+        window.addEventListener('pointerdown', handleMove);
+        window.addEventListener('pointermove', handleMove);
+
+        function createExplosion(x, y, color) {
+            for(let i=0; i<8; i++) particles.push({x, y, vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*5, radius:Math.random()*3+1, alpha:1, color});
+        }
+
+        function spawnEnemy() {
+            if (enemies.length < 6 && !gameOver) {
+                enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, w: 35, h: 35, speed: 2 + (nivel * 0.5) + Math.random() * 3 });
+            }
+        }
+        setInterval(spawnEnemy, 900);
+
         function verificarNivel() {
             if (score >= metaTanques && nivel < 4) {
                 nivel++;
-                metaTanques += 400; // Incrementa dificultad
+                metaTanques += 400;
                 document.getElementById('nivel').innerText = nivel;
-                actualizarEscenario();
+                canvas.className = 'nivel-' + nivel;
             }
         }
 
-        function actualizarEscenario() {
-            if (nivel === 2) canvas.className = 'nivel-2';
-            // Aquí puedes añadir más niveles
-        }
-
-        // --- Aquí iría tu lógica actual de juego (player, bullets, enemies) ---
-        // ... (Mantén tu lógica de movimiento y colisiones aquí) ...
-
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            verificarNivel(); // <--- Llamada a la nueva lógica
-            
-            // ... (El resto de tu lógica de renderizado) ...
+            verificarNivel();
+
+            if (gameOver) {
+                ctx.fillStyle = '#ff0055'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('¡SISTEMA DESTRUIDO!', canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            // Movimiento jugador y disparos
+            player.x += (player.targetX - player.x) * 0.2;
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            if (Math.random() < 0.35) bullets.push({ x: player.x + player.w/2, y: player.y, vy: -10 });
+
+            bullets.forEach((b, i) => {
+                b.y += b.vy;
+                ctx.fillStyle = '#00f0ff';
+                ctx.fillRect(b.x-2, b.y, 4, 12);
+                if (b.y < 0) bullets.splice(i, 1);
+            });
+
+            enemies.forEach((e, i) => {
+                e.y += e.speed;
+                ctx.fillStyle = '#1e000a';
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                
+                // Colisión Bala-Enemigo
+                bullets.forEach((b, j) => {
+                    if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
+                        createExplosion(e.x, e.y, '#ff0055');
+                        enemies.splice(i, 1); bullets.splice(j, 1); score++;
+                        document.getElementById('score').innerText = score;
+                    }
+                });
+                if (e.y > canvas.height) gameOver = true;
+            });
+
             requestAnimationFrame(update);
         }
         update();
     </script>
 </body>
 </html>
-                ctx.fillStyle = '#00f0ff';
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = '#00f0ff';
-                ctx.fillRect(b.x - 2, b.y, 4, 12);
-                ctx.shadowBlur = 0; // Reset sombra
-
-                if (b.y < 0) bullets.splice(i, 1);
-            }
-
-            // 4. Control de Enemigos (Bajando por la vía)
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                let e = enemies[i];
-                e.y += e.speed;
-
-                // Dibujar bloque invasor
-                ctx.fillStyle = '#1e000a';
-                ctx.strokeStyle = '#ff0055';
-                ctx.lineWidth = 2;
-                ctx.fillRect(e.x, e.y, e.w, e.h);
-                ctx.strokeRect(e.x, e.y, e.w, e.h);
-
-                // Colisión: Enemigo pasa de largo (Pierdes) o choca contigo
-                if (e.y > canvas.height) {
-                    enemies.splice(i, 1);
-                } else if (
-                    e.x < player.x + player.w &&
-                    e.x + e.w > player.x &&
-                    e.y < player.y + player.h &&
-                    e.y + e.h > player.y
-                ) {
-                    createExplosion(player.x + player.w/2, player.y + player.h/2, '#00f0ff');
-                    createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0055');
-                    gameOver = true;
-                }
-
-                // Colisión: Bala destruye Enemigo
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    let b = bullets[j];
-                    if (
-                        b.x > e.x && b.x < e.x + e.w &&
-                        b.y > e.y && b.y < e.y + e.h
-                    ) {
-                        createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0055');
-                        enemies.splice(i, 1);
-                        bullets.splice(j, 1);
-                        score++;
-                        document.getElementById('score').innerText = score;
                         break;
                     }
                 }
