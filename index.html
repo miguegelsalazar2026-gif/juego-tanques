@@ -2,108 +2,61 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Galaxia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Galaxia - Niveles</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: #030712; overflow: hidden; touch-action: none; font-family: monospace; }
-        canvas { display: block; }
-        #ui {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            color: #00f0ff;
-            font-size: 20px;
-            font-weight: bold;
-            text-shadow: 0 0 8px #00f0ff;
-            pointer-events: none;
-        }
+        body { background-color: #000; overflow: hidden; }
+        canvas { display: block; background-size: cover; background-position: center; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #00f0ff; font-size: 20px; font-weight: bold; pointer-events: none; text-shadow: 0 0 8px #00f0ff; }
+        .nivel-1 { background-image: url('ciudad-fondo.jpg'); } /* Cambia por tus imágenes */
+        .nivel-2 { background-image: url('desierto-fondo.jpg'); }
     </style>
 </head>
 <body>
-
-    <div id="ui">BAJAS: <span id="score">0</span></div>
+    <div id="ui">BAJAS: <span id="score">0</span> | NIVEL: <span id="nivel">1</span></div>
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        let score = 0;
+        let nivel = 1;
+        let metaTanques = 400;
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize);
         resize();
 
-        let score = 0;
-        let gameOver = false;
-        let roadOffset = 0;
-        const scrollSpeed = 6;
-
-        // Jugador (Tu Tanque de Neón)
-        const player = {
-            x: canvas.width / 2 - 20,
-            y: canvas.height - 120,
-            w: 40,
-            h: 55,
-            targetX: canvas.width / 2 - 20
-        };
-
-        const bullets = [];
-        const enemies = [];
-        const particles = [];
-
-        // Control táctil suave
-        function handleMove(e) {
-            if (gameOver) return;
-            const touch = e.touches ? e.touches[0] : e;
-            player.targetX = touch.clientX - player.w / 2;
-
-            // Disparar de forma automática mientras te mueves
-            if (Math.random() < 0.35) {
-                bullets.push({
-                    x: player.x + player.w / 2,
-                    y: player.y,
-                    vy: -10
-                });
-            }
-        }
-        window.addEventListener('pointerdown', handleMove);
-        window.addEventListener('pointermove', handleMove);
-
-        // Generar explosión de partículas
-        function createExplosion(x, y, color) {
-            for(let i=0; i<8; i++) {
-                particles.push({
-                    x: x, y: y,
-                    vx: (Math.random() - 0.5) * 5,
-                    vy: (Math.random() - 0.5) * 5,
-                    radius: Math.random() * 3 + 1,
-                    alpha: 1,
-                    color: color
-                });
+        // Lógica de Niveles
+        function verificarNivel() {
+            if (score >= metaTanques && nivel < 4) {
+                nivel++;
+                metaTanques += 400; // Incrementa dificultad
+                document.getElementById('nivel').innerText = nivel;
+                actualizarEscenario();
             }
         }
 
-        // Generar oleadas enemigas desde arriba
-        function spawnEnemy() {
-            if (enemies.length < 6 && !gameOver) {
-                enemies.push({
-                    x: Math.random() * (canvas.width - 40),
-                    y: -40,
-                    w: 35,
-                    h: 35,
-                    speed: 2 + Math.random() * 3
-                });
-            }
+        function actualizarEscenario() {
+            if (nivel === 2) canvas.className = 'nivel-2';
+            // Aquí puedes añadir más niveles
         }
-        setInterval(spawnEnemy, 900);
 
-        // Bucle de juego
+        // --- Aquí iría tu lógica actual de juego (player, bullets, enemies) ---
+        // ... (Mantén tu lógica de movimiento y colisiones aquí) ...
+
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+            verificarNivel(); // <--- Llamada a la nueva lógica
+            
+            // ... (El resto de tu lógica de renderizado) ...
+            requestAnimationFrame(update);
+        }
+        update();
+    </script>
+</body>
+</html>
             if (gameOver) {
                 ctx.fillStyle = '#ff0055';
                 ctx.font = 'bold 26px sans-serif';
