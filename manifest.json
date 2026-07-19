@@ -1,0 +1,13 @@
+{
+  "name": "Cyber Galaxia",
+  "short_name": "Tanques",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "icons": [
+    {
+      "src": "icono.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
