@@ -3,107 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber Galaxia - Niveles</title>
+    <title>Cyber Tanques</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: #000; overflow: hidden; }
-        canvas { display: block; background-size: cover; background-position: center; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #00f0ff; font-size: 20px; font-weight: bold; pointer-events: none; text-shadow: 0 0 8px #00f0ff; }
-        .nivel-1 { background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); background-color: #1a1a1a; }
-        .nivel-2 { background-image: url('https://www.transparenttextures.com/patterns/stardust.png'); background-color: #000; }
+        body { background-color: #f0f0f0; overflow: hidden; font-family: sans-serif; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #333; font-size: 20px; font-weight: bold; pointer-events: none; }
+        #btnReinicio { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 20px; cursor: pointer; display: none; }
     </style>
 </head>
 <body>
-    <div id="ui">BAJAS: <span id="score">0</span> | NIVEL: <span id="nivel">1</span></div>
+    <div id="ui">BAJAS: <span id="score">0</span></div>
+    <button id="btnReinicio" onclick="location.reload()">REINICIAR JUEGO</button>
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        
-        // Estado del juego
-        let score = 0;
-        let nivel = 1;
-        let metaTanques = 400;
-        let gameOver = false;
-        let roadOffset = 0;
-        const scrollSpeed = 6;
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize);
-        resize();
+        // Rutas correctas basadas en tus archivos subidos
+        const sndDisparo = new Audio('MP3/DISPAROS.mp3');
+        const sndExplosion = new Audio('MP3/sonido explosion.mp3');
 
-        const player = { x: canvas.width/2 - 20, y: canvas.height - 120, w: 40, h: 55, targetX: canvas.width/2 - 20 };
-        const bullets = [], enemies = [], particles = [];
+        let score = 0, gameOver = false;
+        const player = { x: canvas.width/2 - 25, y: canvas.height - 150, w: 50, h: 60 };
+        const enemies = [], bullets = [], obstacles = [];
 
-        function handleMove(e) {
+        window.addEventListener('touchmove', (e) => {
+            player.x = e.touches[0].clientX - player.w/2;
+            player.y = e.touches[0].clientY - player.h/2;
+        });
+
+        function disparar() {
             if (gameOver) return;
-            const touch = e.touches ? e.touches[0] : e;
-            player.targetX = touch.clientX - player.w / 2;
+            bullets.push({x: player.x + 22, y: player.y, w: 6, h: 15});
+            sndDisparo.currentTime = 0; // Reinicia el sonido para disparos rápidos
+            sndDisparo.play();
         }
-        window.addEventListener('pointerdown', handleMove);
-        window.addEventListener('pointermove', handleMove);
-
-        function createExplosion(x, y, color) {
-            for(let i=0; i<8; i++) particles.push({x, y, vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*5, radius:Math.random()*3+1, alpha:1, color});
-        }
-
-        function spawnEnemy() {
-            if (enemies.length < 6 && !gameOver) {
-                enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, w: 35, h: 35, speed: 2 + (nivel * 0.5) + Math.random() * 3 });
-            }
-        }
-        setInterval(spawnEnemy, 900);
-
-        function verificarNivel() {
-            if (score >= metaTanques && nivel < 4) {
-                nivel++;
-                metaTanques += 400;
-                document.getElementById('nivel').innerText = nivel;
-                canvas.className = 'nivel-' + nivel;
-            }
-        }
+        setInterval(disparar, 600);
 
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            verificarNivel();
-
             if (gameOver) {
-                ctx.fillStyle = '#ff0055'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText('¡SISTEMA DESTRUIDO!', canvas.width/2, canvas.height/2);
+                document.getElementById('btnReinicio').style.display = 'block';
                 return;
             }
 
-            // Movimiento jugador y disparos
-            player.x += (player.targetX - player.x) * 0.2;
-            ctx.fillStyle = '#00f0ff';
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-
-            if (Math.random() < 0.35) bullets.push({ x: player.x + player.w/2, y: player.y, vy: -10 });
+            // Tanque con orugas
+            ctx.fillStyle = '#000'; ctx.fillRect(player.x + 10, player.y, 30, 60);
+            ctx.fillStyle = '#555'; ctx.fillRect(player.x, player.y + 5, 10, 50);
+            ctx.fillRect(player.x + 40, player.y + 5, 10, 50);
+            ctx.fillStyle = '#000'; ctx.fillRect(player.x + 22, player.y - 10, 6, 15);
 
             bullets.forEach((b, i) => {
-                b.y += b.vy;
-                ctx.fillStyle = '#00f0ff';
-                ctx.fillRect(b.x-2, b.y, 4, 12);
+                b.y -= 10;
+                ctx.fillStyle = '#00f'; ctx.fillRect(b.x, b.y, b.w, b.h);
                 if (b.y < 0) bullets.splice(i, 1);
             });
 
+            if (Math.random() < 0.03) enemies.push({x: Math.random()*(canvas.width-40), y: -50});
             enemies.forEach((e, i) => {
-                e.y += e.speed;
-                ctx.fillStyle = '#1e000a';
-                ctx.fillRect(e.x, e.y, e.w, e.h);
-                
-                // Colisión Bala-Enemigo
+                e.y += 4;
+                ctx.fillStyle = '#f00'; ctx.fillRect(e.x, e.y, 40, 40);
                 bullets.forEach((b, j) => {
-                    if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
-                        createExplosion(e.x, e.y, '#ff0055');
+                    if (b.x < e.x + 40 && b.x + 6 > e.x && b.y < e.y + 40 && b.y + 15 > e.y) {
                         enemies.splice(i, 1); bullets.splice(j, 1); score++;
                         document.getElementById('score').innerText = score;
+                        sndExplosion.play();
                     }
                 });
                 if (e.y > canvas.height) gameOver = true;
             });
 
+            requestAnimationFrame(update);
+        }
+        update();
+    </script>
+</body>
+</html>
             requestAnimationFrame(update);
         }
         update();
